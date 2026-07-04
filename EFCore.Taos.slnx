@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Src/EntityFramework.Taos/EntityFramework.Taos.csproj" />
+  <Project Path="Taos.Demo/Taos.Demo.csproj" />
+</Solution>
