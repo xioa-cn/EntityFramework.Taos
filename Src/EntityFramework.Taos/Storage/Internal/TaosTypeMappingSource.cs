@@ -14,8 +14,8 @@ public sealed class TaosTypeMappingSource : RelationalTypeMappingSource
     private static readonly DoubleTypeMapping Double = new("double", DbType.Double);
     private static readonly DecimalTypeMapping Decimal = new("double", DbType.Decimal);
     private static readonly DateTimeTypeMapping DateTime = new("timestamp", DbType.DateTime);
-    private static readonly StringTypeMapping String = new("nchar(255)", DbType.String);
-    private static readonly ByteArrayTypeMapping Bytes = new("varbinary(1024)", DbType.Binary);
+    private static readonly StringTypeMapping String = CreateStringMapping(size: null);
+    private static readonly ByteArrayTypeMapping Bytes = CreateBytesMapping(size: null);
 
     private static readonly Dictionary<Type, RelationalTypeMapping> ClrMappings = new()
     {
@@ -59,17 +59,40 @@ public sealed class TaosTypeMappingSource : RelationalTypeMappingSource
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
     {
         var storeTypeName = mappingInfo.StoreTypeName;
-        if (!string.IsNullOrWhiteSpace(storeTypeName)
-            && StoreMappings.TryGetValue(UnwrapStoreType(storeTypeName), out var storeMapping))
+        if (!string.IsNullOrWhiteSpace(storeTypeName))
         {
             // 优先尊重显式 HasColumnType，包括 nchar(64) 这类带长度的形式。
-            return storeMapping;
+            var unwrappedStoreType = UnwrapStoreType(storeTypeName);
+            if (IsStringStoreType(unwrappedStoreType))
+            {
+                return new StringTypeMapping(storeTypeName, DbType.String);
+            }
+
+            if (IsBytesStoreType(unwrappedStoreType))
+            {
+                return new ByteArrayTypeMapping(storeTypeName, DbType.Binary);
+            }
+
+            if (StoreMappings.TryGetValue(unwrappedStoreType, out var storeMapping))
+            {
+                return storeMapping;
+            }
         }
 
         var clrType = mappingInfo.ClrType;
         if (clrType is not null)
         {
             clrType = Nullable.GetUnderlyingType(clrType) ?? clrType;
+            if (clrType == typeof(string))
+            {
+                return CreateStringMapping(mappingInfo.Size);
+            }
+
+            if (clrType == typeof(byte[]))
+            {
+                return CreateBytesMapping(mappingInfo.Size);
+            }
+
             if (ClrMappings.TryGetValue(clrType, out var clrMapping))
             {
                 return clrMapping;
@@ -85,4 +108,21 @@ public sealed class TaosTypeMappingSource : RelationalTypeMappingSource
         var parenIndex = storeType.IndexOf('(');
         return (parenIndex < 0 ? storeType : storeType[..parenIndex]).Trim();
     }
+
+    private static StringTypeMapping CreateStringMapping(int? size)
+        => new($"nchar({NormalizeSize(size, defaultSize: 255)})", DbType.String);
+
+    private static ByteArrayTypeMapping CreateBytesMapping(int? size)
+        => new($"varbinary({NormalizeSize(size, defaultSize: 1024)})", DbType.Binary);
+
+    private static int NormalizeSize(int? size, int defaultSize)
+        => size is > 0 ? size.Value : defaultSize;
+
+    private static bool IsStringStoreType(string storeType)
+        => string.Equals(storeType, "nchar", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(storeType, "varchar", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsBytesStoreType(string storeType)
+        => string.Equals(storeType, "binary", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(storeType, "varbinary", StringComparison.OrdinalIgnoreCase);
 }

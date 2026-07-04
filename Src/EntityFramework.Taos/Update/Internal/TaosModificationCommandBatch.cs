@@ -202,6 +202,7 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
             char character => $"'{EscapeString(character.ToString())}'",
             DateTime dateTime => $"'{dateTime:yyyy-MM-dd HH:mm:ss.fff}'",
             DateTimeOffset dateTimeOffset => $"'{dateTimeOffset.UtcDateTime:yyyy-MM-dd HH:mm:ss.fff}'",
+            Enum enumValue => ConvertEnumToLiteral(enumValue),
             bool boolean => boolean ? "true" : "false",
             byte[] bytes => $"'{Convert.ToHexString(bytes)}'",
             float number => number.ToString(CultureInfo.InvariantCulture),
@@ -222,6 +223,14 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
     private static string EscapeString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("'", "''", StringComparison.Ordinal);
+
+    private static string ConvertEnumToLiteral(Enum value)
+    {
+        var underlyingType = Enum.GetUnderlyingType(value.GetType());
+        var underlyingValue = Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
+
+        return Convert.ToString(underlyingValue, CultureInfo.InvariantCulture) ?? "0";
+    }
 
     private static string CreateSubTableName(
         string stableName,

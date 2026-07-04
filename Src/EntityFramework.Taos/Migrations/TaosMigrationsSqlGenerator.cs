@@ -53,7 +53,7 @@ public sealed class TaosMigrationsSqlGenerator : MigrationsSqlGenerator
             }
 
             builder.Append("    ");
-            ColumnDefinition(operation.Schema, operation.Name, columns[i].Name, columns[i], model, builder);
+            ColumnDefinitionWithMaxLength(operation.Schema, operation.Name, columns[i], model, builder);
         }
 
         builder.AppendLine();
@@ -70,7 +70,7 @@ public sealed class TaosMigrationsSqlGenerator : MigrationsSqlGenerator
                     builder.Append(", ");
                 }
 
-                ColumnDefinition(operation.Schema, operation.Name, tags[i].Name, tags[i], model, builder);
+                ColumnDefinitionWithMaxLength(operation.Schema, operation.Name, tags[i], model, builder);
             }
 
             builder.Append(")");
@@ -81,6 +81,69 @@ public sealed class TaosMigrationsSqlGenerator : MigrationsSqlGenerator
             builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
             EndStatement(builder);
         }
+    }
+
+    private void ColumnDefinitionWithMaxLength(
+        string? schema,
+        string table,
+        AddColumnOperation column,
+        IModel? model,
+        MigrationCommandListBuilder builder)
+    {
+        var originalColumnType = column.ColumnType;
+        var resolvedColumnType = ResolveColumnType(column);
+        if (resolvedColumnType is not null)
+        {
+            column.ColumnType = resolvedColumnType;
+        }
+
+        try
+        {
+            ColumnDefinition(schema, table, column.Name, column, model, builder);
+        }
+        finally
+        {
+            column.ColumnType = originalColumnType;
+        }
+    }
+
+    private static string? ResolveColumnType(AddColumnOperation column)
+    {
+        if (column.MaxLength is not > 0)
+        {
+            return null;
+        }
+
+        var clrType = Nullable.GetUnderlyingType(column.ClrType) ?? column.ClrType;
+        if (clrType == typeof(string) && ShouldApplyMaxLength(column.ColumnType, "nchar", "varchar"))
+        {
+            return $"nchar({column.MaxLength.Value})";
+        }
+
+        if (clrType == typeof(byte[]) && ShouldApplyMaxLength(column.ColumnType, "binary", "varbinary"))
+        {
+            return $"varbinary({column.MaxLength.Value})";
+        }
+
+        return null;
+    }
+
+    private static bool ShouldApplyMaxLength(string? columnType, string firstStoreType, string secondStoreType)
+    {
+        if (string.IsNullOrWhiteSpace(columnType))
+        {
+            return true;
+        }
+
+        var storeType = UnwrapStoreType(columnType);
+        return string.Equals(storeType, firstStoreType, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(storeType, secondStoreType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string UnwrapStoreType(string storeType)
+    {
+        var parenIndex = storeType.IndexOf('(');
+        return (parenIndex < 0 ? storeType : storeType[..parenIndex]).Trim();
     }
 
     protected override void Generate(

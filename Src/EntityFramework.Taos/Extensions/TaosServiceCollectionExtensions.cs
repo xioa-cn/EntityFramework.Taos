@@ -37,6 +37,7 @@ public static class TaosServiceCollectionExtensions
             .TryAdd<ISqlGenerationHelper, TaosSqlGenerationHelper>()
             .TryAdd<IRelationalCommandBuilderFactory, TaosRelationalCommandBuilderFactory>()
             .TryAdd<IQuerySqlGeneratorFactory, TaosQuerySqlGeneratorFactory>()
+            .TryAdd<IMethodCallTranslatorProvider, TaosMethodCallTranslatorProvider>()
             .TryAdd<IRelationalConnection, TaosRelationalConnection>()
             .TryAdd<IUpdateSqlGenerator, TaosUpdateSqlGenerator>()
             .TryAdd<IModificationCommandBatchFactory, TaosModificationCommandBatchFactory>()

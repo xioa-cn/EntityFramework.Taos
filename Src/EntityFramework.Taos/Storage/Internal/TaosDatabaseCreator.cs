@@ -241,13 +241,52 @@ public sealed class TaosDatabaseCreator : RelationalDatabaseCreator
             var columnName = property.GetColumnName(storeObject) ?? property.Name;
             var typeMapping = _typeMappingSource.FindMapping(property)
                 ?? throw new NotSupportedException($"No TDengine type mapping exists for property '{property.DeclaringType.DisplayName()}.{property.Name}'.");
-            var columnType = property.GetColumnType() ?? typeMapping.StoreType;
+            var columnType = ResolveColumnType(property, typeMapping);
 
             builder
                 .Append(_sqlGenerationHelper.DelimitIdentifier(columnName))
                 .Append(' ')
                 .Append(columnType);
         }
+    }
+
+    private static string ResolveColumnType(IProperty property, RelationalTypeMapping typeMapping)
+    {
+        var columnType = property.GetColumnType();
+        var maxLength = property.GetMaxLength();
+        if (maxLength is > 0)
+        {
+            var clrType = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+            if (clrType == typeof(string) && ShouldApplyMaxLength(columnType, "nchar", "varchar"))
+            {
+                return $"nchar({maxLength.Value})";
+            }
+
+            if (clrType == typeof(byte[]) && ShouldApplyMaxLength(columnType, "binary", "varbinary"))
+            {
+                return $"varbinary({maxLength.Value})";
+            }
+        }
+
+        return columnType ?? typeMapping.StoreType;
+    }
+
+    private static bool ShouldApplyMaxLength(string? columnType, string firstStoreType, string secondStoreType)
+    {
+        if (string.IsNullOrWhiteSpace(columnType))
+        {
+            return true;
+        }
+
+        var storeType = UnwrapStoreType(columnType);
+        return string.Equals(storeType, firstStoreType, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(storeType, secondStoreType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string UnwrapStoreType(string storeType)
+    {
+        var parenIndex = storeType.IndexOf('(');
+        return (parenIndex < 0 ? storeType : storeType[..parenIndex]).Trim();
     }
 
     private string? GetDatabaseName()
