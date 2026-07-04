@@ -27,8 +27,8 @@ public sealed class TaosOptionsExtension : RelationalOptionsExtension
     protected override RelationalOptionsExtension Clone()
         => new TaosOptionsExtension(this);
 
-    // Return the concrete extension type so UseTaos can fluently update relational options
-    // without exposing EF Core's base RelationalOptionsExtension to callers.
+    // 返回具体扩展类型，让 UseTaos 可以流式更新关系型选项，
+    // 同时不把 EF Core 的 RelationalOptionsExtension 基类暴露给调用方。
     public new TaosOptionsExtension WithConnectionString(string connectionString)
         => (TaosOptionsExtension)base.WithConnectionString(connectionString);
 

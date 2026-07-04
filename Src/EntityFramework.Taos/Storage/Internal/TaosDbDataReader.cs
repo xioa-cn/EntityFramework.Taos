@@ -29,8 +29,8 @@ internal sealed class TaosDbDataReader : DbDataReader
             }
             catch (NullReferenceException)
             {
-                // TDengine's reader can throw here during EF's query-reader disposal path.
-                // SELECT readers do not need an affected-row count, so ADO.NET's no-count value is enough.
+                // EF 释放查询 reader 时，TDengine 的 reader 可能在这里抛异常。
+                // SELECT reader 不需要受影响行数，返回 ADO.NET 的无计数值即可。
                 return -1;
             }
         }

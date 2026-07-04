@@ -62,7 +62,7 @@ public sealed class TaosTypeMappingSource : RelationalTypeMappingSource
         if (!string.IsNullOrWhiteSpace(storeTypeName)
             && StoreMappings.TryGetValue(UnwrapStoreType(storeTypeName), out var storeMapping))
         {
-            // Respect explicit HasColumnType first, including sized forms like nchar(64).
+            // 优先尊重显式 HasColumnType，包括 nchar(64) 这类带长度的形式。
             return storeMapping;
         }
 
@@ -81,7 +81,7 @@ public sealed class TaosTypeMappingSource : RelationalTypeMappingSource
 
     private static string UnwrapStoreType(string storeType)
     {
-        // EF passes the full store type name; TDengine mappings are keyed by base type.
+        // EF 传入完整 store type 名称；TDengine 映射按基础类型作为键。
         var parenIndex = storeType.IndexOf('(');
         return (parenIndex < 0 ? storeType : storeType[..parenIndex]).Trim();
     }

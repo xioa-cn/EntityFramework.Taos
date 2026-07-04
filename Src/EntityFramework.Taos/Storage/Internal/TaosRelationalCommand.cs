@@ -54,8 +54,8 @@ public sealed class TaosRelationalCommand : RelationalCommand
     {
         var inlinedParameterNames = new HashSet<string>(StringComparer.Ordinal);
 
-        // TDengine does not accept prepared parameters in LIMIT/OFFSET positions.
-        // Inline only those numeric pagination values and leave normal query parameters untouched.
+        // TDengine 不接受 LIMIT/OFFSET 位置上的预处理参数。
+        // 这里只内联这些数值分页参数，普通查询参数保持不变。
         command.CommandText = LimitOffsetParameterPattern.Replace(
             command.CommandText,
             match =>

@@ -24,6 +24,22 @@ public sealed class TaosUpdateSqlGenerator : UpdateSqlGenerator
         var tagOperations = writeOperations
             .Where(IsTag)
             .ToArray();
+        var isStable = command.Entries
+            .Select(e => e.EntityType.FindAnnotation(TaosAnnotationNames.IsStable)?.Value as bool?)
+            .Any(v => v == true);
+
+        if (!isStable && tagOperations.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Table '{command.TableName}' has TDengine tag columns but is not mapped as a stable.");
+        }
+
+        if (isStable && tagOperations.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"TDengine stable '{command.TableName}' must define at least one tag column.");
+        }
+
         var valueOperations = writeOperations
             .Where(o => !IsTag(o))
             .OrderBy(o => IsTimestamp(o) ? 0 : 1)

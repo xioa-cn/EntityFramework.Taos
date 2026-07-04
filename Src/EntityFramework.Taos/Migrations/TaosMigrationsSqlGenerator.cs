@@ -24,7 +24,20 @@ public sealed class TaosMigrationsSqlGenerator : MigrationsSqlGenerator
             .ToArray();
         var columns = operation.Columns
             .Where(c => c[TaosAnnotationNames.IsTag] as bool? != true)
+            .OrderBy(c => c[TaosAnnotationNames.IsTimestamp] as bool? == true ? 0 : 1)
             .ToArray();
+
+        if (isStable && tags.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"TDengine stable '{operation.Name}' must define at least one tag column.");
+        }
+
+        if (columns.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"TDengine table '{operation.Name}' must define at least one value column.");
+        }
 
         builder
             .Append("CREATE ")

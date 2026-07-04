@@ -17,8 +17,8 @@ public sealed class TaosRelationalConnection : RelationalConnection
         var extension = dependencies.ContextOptions.Extensions.OfType<TaosOptionsExtension>().FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(extension?.ConnectionString))
         {
-            // Keep the database name separately because database create/drop must connect
-            // to the server first, while normal EF operations should switch into that DB.
+            // 单独保存数据库名，因为创建/删除数据库必须先连接 server，
+            // 普通 EF 操作则需要切换到目标数据库。
             _databaseName = new TDengineConnectionStringBuilder(extension.ConnectionString).Database;
             _connectionString = NormalizeConnectionString(extension.ConnectionString);
         }
@@ -50,8 +50,8 @@ public sealed class TaosRelationalConnection : RelationalConnection
     {
         if (!string.IsNullOrWhiteSpace(_databaseName))
         {
-            // TDengine WebSocket connections may open without an active database even when
-            // the connection string contains db=, so switch explicitly after each open.
+            // 即使连接字符串包含 db=，TDengine WebSocket 连接打开后也可能没有活动数据库，
+            // 所以每次打开后都显式切换一次。
             DbConnection.ChangeDatabase(_databaseName);
         }
     }
@@ -64,8 +64,8 @@ public sealed class TaosRelationalConnection : RelationalConnection
         if (!string.IsNullOrWhiteSpace(builder.Database)
             && !normalized.Contains("db=", StringComparison.OrdinalIgnoreCase))
         {
-            // TDengineConnectionStringBuilder can normalize the database key away.
-            // Add db= back so lower layers and diagnostics keep the selected database.
+            // TDengineConnectionStringBuilder 可能在规范化时移除数据库键。
+            // 补回 db=，让底层组件和诊断信息保留当前选择的数据库。
             normalized += $";db={builder.Database}";
         }
 

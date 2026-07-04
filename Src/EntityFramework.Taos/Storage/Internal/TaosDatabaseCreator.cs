@@ -167,8 +167,8 @@ public sealed class TaosDatabaseCreator : RelationalDatabaseCreator
 
         foreach (var entityType in model.GetEntityTypes().Where(e => !e.IsOwned()))
         {
-            // EF table metadata is reused for TDengine tables/stables; provider annotations
-            // decide whether the generated DDL is CREATE TABLE or CREATE STABLE.
+            // EF 表元数据同时复用于 TDengine 普通表和超级表；
+            // provider 注解决定最终 DDL 是 CREATE TABLE 还是 CREATE STABLE。
             var tableName = entityType.GetTableName();
             if (string.IsNullOrWhiteSpace(tableName))
             {
@@ -181,12 +181,29 @@ public sealed class TaosDatabaseCreator : RelationalDatabaseCreator
             var tagProperties = properties
                 .Where(IsTag)
                 .ToArray();
-            // TDengine timestamp belongs first in the column list. Tags are emitted separately
-            // in the TAGS clause and are not part of the normal value column list.
+            if (!isStable && tagProperties.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Entity '{entityType.DisplayName()}' defines TDengine tag properties but is not mapped with ToStable().");
+            }
+
+            if (isStable && tagProperties.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"TDengine stable '{tableName}' must define at least one tag property.");
+            }
+
+            // TDengine 时间戳应位于列列表第一位。标签会单独输出到 TAGS 子句，
+            // 不属于普通值列列表。
             var valueProperties = properties
                 .Where(p => !IsTag(p))
                 .OrderBy(p => IsTimestamp(p) ? 0 : 1)
                 .ToArray();
+            if (valueProperties.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"TDengine table '{tableName}' must define at least one value property.");
+            }
 
             var builder = new StringBuilder()
                 .Append("CREATE ")
@@ -307,8 +324,8 @@ public sealed class TaosDatabaseCreator : RelationalDatabaseCreator
     private TDengineConnection CreateServerConnection()
     {
         var builder = new TDengineConnectionStringBuilder(_connection.ConnectionString);
-        // CREATE/DROP DATABASE and SHOW DATABASES must run at server scope, not inside
-        // the database that may not exist yet.
+        // CREATE/DROP DATABASE 和 SHOW DATABASES 必须在 server 作用域执行，
+        // 不能进入那个可能还不存在的数据库。
         builder.Database = string.Empty;
 
         return new TDengineConnection(builder.ConnectionString);

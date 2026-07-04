@@ -17,9 +17,9 @@ public sealed class TaosCommandBatchPreparer : ICommandBatchPreparer
         IList<IUpdateEntry> entries,
         IUpdateAdapter updateAdapter)
         => CreateCommandBatches(
-            // EF's default modification command contains relational update/delete behavior
-            // that does not match TDengine's append-only write model. Wrap each entry in the
-            // minimal command shape consumed by TaosModificationCommandBatch.
+            // EF 默认修改命令包含关系型 update/delete 行为，
+            // 这和 TDengine 的只追加写入模型不匹配。这里把每个 entry 包装成
+            // TaosModificationCommandBatch 需要的最小命令形态。
             entries.Select(entry => new TaosModificationCommand(entry)),
             moreCommandSets: false);
 
@@ -71,12 +71,12 @@ public sealed class TaosCommandBatchPreparer : ICommandBatchPreparer
 
         public void PropagateResults(RelationalDataReader relationalReader)
         {
-            // TDengine INSERTs generated here do not return server-generated values.
+            // 这里生成的 TDengine INSERT 不返回服务端生成值。
         }
 
         public void PropagateOutputParameters(DbParameterCollection parameterCollection, int baseParameterIndex)
         {
-            // The provider does not use stored procedures or output parameters for writes.
+            // provider 写入时不使用存储过程或输出参数。
         }
 
 #if NET10_0_OR_GREATER

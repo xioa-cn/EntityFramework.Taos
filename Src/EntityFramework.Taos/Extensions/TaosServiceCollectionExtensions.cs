@@ -1,5 +1,6 @@
 using EntityFramework.Taos.Diagnostics.Internal;
 using EntityFramework.Taos.Infrastructure.Internal;
+using EntityFramework.Taos.Metadata.Internal;
 using EntityFramework.Taos.Metadata.Conventions;
 using EntityFramework.Taos.Migrations;
 using EntityFramework.Taos.Query.Internal;
@@ -8,6 +9,7 @@ using EntityFramework.Taos.Update.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -23,13 +25,14 @@ public static class TaosServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(serviceCollection);
 
-        // This provider is intentionally built on EF Core's relational pipeline.
-        // Each service below replaces only the TDengine-specific part: model conventions,
-        // SQL dialect, connection/database lifecycle, and append-only write batching.
+        // 这个 provider 基于 EF Core 的关系型管线实现。
+        // 下面每个服务只替换 TDengine 特有的部分：模型约定、
+        // SQL 方言、连接/数据库生命周期，以及只追加写入的批处理。
         var builder = new EntityFrameworkRelationalServicesBuilder(serviceCollection)
             .TryAdd<LoggingDefinitions, TaosLoggingDefinitions>()
             .TryAdd<IProviderConventionSetBuilder, TaosConventionSetBuilder>()
             .TryAdd<IModelRuntimeInitializer, RelationalModelRuntimeInitializer>()
+            .TryAdd<IRelationalAnnotationProvider, TaosAnnotationProvider>()
             .TryAdd<IRelationalTypeMappingSource, TaosTypeMappingSource>()
             .TryAdd<ISqlGenerationHelper, TaosSqlGenerationHelper>()
             .TryAdd<IRelationalCommandBuilderFactory, TaosRelationalCommandBuilderFactory>()

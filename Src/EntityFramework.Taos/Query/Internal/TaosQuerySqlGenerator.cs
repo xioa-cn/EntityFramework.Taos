@@ -17,7 +17,7 @@ public sealed class TaosQuerySqlGenerator : QuerySqlGenerator
             return;
         }
 
-        // The base relational generator emits SQL-standard FETCH FIRST syntax; TDengine expects LIMIT/OFFSET.
+        // 关系型基类生成 SQL 标准的 FETCH FIRST 语法；TDengine 需要 LIMIT/OFFSET。
         Sql.AppendLine()
             .Append("LIMIT ");
         Visit(selectExpression.Limit);

@@ -30,8 +30,8 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
 
     public override bool TryAddCommand(IReadOnlyModificationCommand modificationCommand)
     {
-        // TDengine inserts are generated as complete text commands with stable/tag routing.
-        // Keep one EF modification per batch to avoid mixing different subtables in one command.
+        // TDengine 插入会生成完整文本命令，并包含超级表/tag 路由。
+        // 每个批次只保留一个 EF 修改，避免在同一条命令中混入不同子表。
         if (_modificationCommands.Count > 0)
         {
             return false;
@@ -95,9 +95,22 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
         var entityType = entry.EntityType;
         var storeObject = StoreObjectIdentifier.Table(modificationCommand.TableName, modificationCommand.Schema);
         var properties = entityType.GetProperties().ToArray();
+        var isStable = entityType.FindAnnotation(TaosAnnotationNames.IsStable)?.Value as bool? == true;
         var tagProperties = properties.Where(IsTag).ToArray();
-        // Tags identify or create the subtable; only non-tag properties are inserted as values.
-        // Timestamp is ordered first to satisfy TDengine's time-series table requirements.
+        if (!isStable && tagProperties.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Entity '{entityType.DisplayName()}' defines TDengine tag properties but is not mapped with ToStable().");
+        }
+
+        if (isStable && tagProperties.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"TDengine stable '{modificationCommand.TableName}' must define at least one tag property.");
+        }
+
+        // 标签用于定位或创建子表；只有非标签属性会作为值列写入。
+        // 时间戳排在第一列，以满足 TDengine 时序表要求。
         var valueProperties = properties
             .Where(p => !IsTag(p))
             .OrderBy(p => IsTimestamp(p) ? 0 : 1)
@@ -119,8 +132,8 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
 
         if (tagProperties.Length > 0)
         {
-            // INSERT INTO subtable USING stable TAGS (...) creates the subtable on demand
-            // and routes the row to the tag-specific TDengine child table.
+            // INSERT INTO subtable USING stable TAGS (...) 会按需创建子表，
+            // 并把数据路由到对应 tag 的 TDengine 子表。
             builder
                 .Append(" USING ")
                 .Append(_sqlGenerationHelper.DelimitIdentifier(stableName))
@@ -181,8 +194,8 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
             return "NULL";
         }
 
-        // TDengine's WebSocket prepared statements are not reliable for the STABLE/TAGS
-        // insert shape, so this provider emits escaped literals for generated INSERT SQL.
+        // TDengine WebSocket 预处理语句对 STABLE/TAGS 这种插入形态不稳定，
+        // 所以这里为生成的 INSERT SQL 输出转义后的字面量。
         return value switch
         {
             string text => $"'{EscapeString(text)}'",
@@ -215,8 +228,8 @@ public sealed class TaosModificationCommandBatch : ModificationCommandBatch
         IReadOnlyList<IProperty> tagProperties,
         IUpdateEntry entry)
     {
-        // TDengine child table names must be deterministic for a tag set.
-        // A compact FNV-1a hash avoids leaking long tag values into identifiers.
+        // TDengine 子表名必须能由一组 tag 稳定推导。
+        // 使用紧凑的 FNV-1a 哈希，避免把很长的 tag 值泄露到标识符里。
         const ulong offsetBasis = 14695981039346656037UL;
         const ulong prime = 1099511628211UL;
 
