@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
 namespace EntityFramework.Taos.Metadata.Conventions;
 
@@ -7,4 +8,13 @@ namespace EntityFramework.Taos.Metadata.Conventions;
 public sealed class TaosConventionSetBuilder(
     ProviderConventionSetBuilderDependencies dependencies,
     RelationalConventionSetBuilderDependencies relationalDependencies)
-    : RelationalConventionSetBuilder(dependencies, relationalDependencies);
+    : RelationalConventionSetBuilder(dependencies, relationalDependencies)
+{
+    public override ConventionSet CreateConventionSet()
+    {
+        var conventionSet = base.CreateConventionSet();
+        conventionSet.ModelFinalizingConventions.Add(new TaosAttributeConvention());
+
+        return conventionSet;
+    }
+}
